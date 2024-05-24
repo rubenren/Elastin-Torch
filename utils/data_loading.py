@@ -43,19 +43,22 @@ class BFDataset(Dataset):
         return len(self.bright_fields)
 
     @staticmethod
-    def preprocess(img):
+    def preprocess(img, which):
         img = np.asarray(img)
-        if len(img.shape) == 2:
+        if which == 0:
+            # we have a brightfield image
+            img = img.astype('float') / 255
+            img = 1 - img.mean(axis=-1)
+        elif which == 1:
+            # we have a fluorescence image
+            img = img.astype('float') / 255
+            img = img[:,:,1]
+        elif which == 2:
             # We have a mask
             img = img.copy()
-            img[img < 0.5] = 0.0
-            img[img >= 0.5] = 1.0
-            return img
-        elif len(img.shape) == 3:
-            # we have an input RGB image
-            img = img.astype('float') / 255
-            return img
-        return None
+            img[img < 0.] = 0.0
+            img[img > 1.] = 1.0
+        return img
 
     def __getitem__(self, idx):
         B_file = self.bright_fields[idx]
@@ -66,9 +69,9 @@ class BFDataset(Dataset):
         fluorescence = load_image(F_file)
         mask = load_image(M_file)
 
-        brightfield = self.preprocess(brightfield)
-        fluorescence = self.preprocess(fluorescence)
-        mask = self.preprocess(mask)
+        brightfield = self.preprocess(brightfield, 0)
+        fluorescence = self.preprocess(fluorescence, 1)
+        mask = self.preprocess(mask, 2)
 
         img = torch.cat((TF.to_tensor(brightfield.copy()), TF.to_tensor(fluorescence.copy())), 0)
 
@@ -86,9 +89,9 @@ class BFDataset(Dataset):
         fluorescence = load_image(F_file)
         mask = load_image(M_file)
 
-        brightfield = self.preprocess(brightfield)
-        fluorescence = self.preprocess(fluorescence)
-        mask = self.preprocess(mask)
+        brightfield = self.preprocess(brightfield, 0)
+        fluorescence = self.preprocess(fluorescence, 1)
+        mask = self.preprocess(mask, 2)
 
         return {
             'brightfield': torch.as_tensor(brightfield.copy()).float().contiguous(),
